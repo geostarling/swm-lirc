@@ -16,11 +16,14 @@
 (defvar *lirc-clientactive* nil
   "")
 
-
-
 (defvar *config* '#( ((button . "KEY_DOWN")
-                      (command . #'shutdown))
-                     (("quux" 4/17 4.25))))
+                      (command . "exec echo x > /tmp/dat"))))
+
+(defun find-commands (code)
+  (mapcan (lambda (item) (alexandria:assoc-value 'command item))
+          (remove-if-not (lambda (item)
+                           (string= code (alexandria:assoc-value 'button item)))
+                         *config*)))
 
 (defun listen-for-events ()
   (handler-case
@@ -30,9 +33,9 @@
                 :type :datagram
                 :remote-filename "/var/lirc"
                 :external-format '(:utf-8 :eol-style :crlf))
-        (let ((line (read-line sock)))
-          ;; split
-          (format t "~A" line)
+        (let ((code (read-line sock))
+              (commands (find-commands code)))
+          (run-commands commands)
           t))
     (end-of-file ()
       :lirc-socket-closed)))
