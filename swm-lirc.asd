@@ -6,6 +6,6 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (:stumpwm :iolib)
+  :depends-on (:bordeaux-threads :iolib :stumpwm)
   :components ((:file "package")
                (:file "swm-lirc")))
