@@ -23,21 +23,31 @@
             matches)))
 
 (defun listen-for-events ()
-  (handler-case
-      (iolib:with-open-socket
-          (sock :connect :active
-                :address-family :local
-                :type :stream
-                :remote-filename "/var/run/lirc/lircd")
-        (loop
-           (let* ((line (read-line sock))
-                  (code (nth 2 (stumpwm:split-string line " ")))
-                  (commands (find-commands code)))
-             (when commands
-               (run-commands commands))
-             t)))
-    (end-of-file ()
-      :lirc-socket-closed)))
+  (loop
+    :for ret
+    = (restart-case
+          (handler-bind
+              ((iolib:socket-connection-refused-error #'(lambda (c) (declare (ignore c)) (invoke-restart 'retry-connection 3)))
+               (end-of-file #'(lambda (c) (declare (ignore c)) (invoke-restart 'close-connection))))
+
+            (iolib:with-open-socket
+                (sock :connect :active
+                      :address-family :local
+                      :type :stream
+                      :remote-filename "/var/run/lirc/lircd")
+              (loop
+                 (let* ((line (read-line sock))
+                        (code (nth 2 (stumpwm:split-string line " ")))
+                        (commands (find-commands code)))
+                   (when commands
+                     (run-commands commands))
+                   t))))
+          (retry-connection (timeout) (progn
+                                        (sleep timeout)
+                                        :retry))
+          (close-connection () :close))
+    :while (eq ret :retry)))
+
 
 (defun lirc-client-start ()
   "Turns on notify server."
